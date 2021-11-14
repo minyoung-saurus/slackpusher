@@ -1,0 +1,95 @@
+//변수조건을 var로 설정. 
+var WEBHOOK_URL = 'https://hooks.slack.com/services/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';
+var SLACK_USERNAME = '';
+var SLACK_ICON_EMOJI = '';
+var SHEET_NAME = "Sheet1";
+// ... END Configuration
+var COLUMN_DATE = 1;
+var COLUMN_Country = 2;
+var COLUMN_Account = 3;
+var COLUMN_Campaign = 4;
+var COLUMN_Contents = 5;
+var COLUMN_Writer = 6;
+var COLUMN_jude = 7;
+//열번호 지정
+function doPost() {
+  // // 현재 날짜 및 시간을 가지고있는 클래스 Date()에 객체 now를 추가한다
+    var now = new Date();
+    // 조건 ? 참:거짓 ///현재 조건 변수 sheet_name이 null이므로 불린형이 된다. 이경우 결과치는 false
+    var sheet = SHEET_NAME ? SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME) : SpreadsheetApp.getActiveSheet();
+
+
+    var maxRows = sheet.getMaxRows(), maxCols = sheet.getMaxColumns();
+    // 1,1 즉 A1열부터 시작하여 1번쨰범위 즉 헤더의 maxcols 헤더 행의 열끝까지를 불러들이기
+    //불러들인후 getValues()로 데이터 값 추출, 그것의 0번째 리스트 인덱스 들고오기 date
+    //어째서인지 리스트속 리스트 구조로 되어있기 떄문에 [0]을 해준다 [['값1','값2','값3']]
+    var headerValues = sheet.getRange(1, 1, 1, maxCols).getValues()[0];
+
+    //변수r은 2부터 시작하고 최대행값까지만 진행될수 있으며 2부터 2,3,4,5.. 순차출력을 하는 증감연산자를 사용했다
+    for (var r = 2; r <= maxRows; r++) {
+        var row = sheet.getRange(r, 1, r, maxCols); //row라는 변수는 r의 행을 한줄씩 읽어들인다
+
+
+        var date = row.getCell(1, COLUMN_DATE).getValue();
+        
+        
+        if (date === '')
+            break;
+        if (row.getCell(1, 7).getValue()  !== ''){
+            continue;
+        //if (!conditionMatches(row.getCell(1, COLUMN_DATE).getValue(), now)) {
+        //    continue;
+        }
+        var msg = new SlackMessage({
+            username: row.getCell(1, COLUMN_Writer).getValue() + " Bot",
+            icon_emoji: ':alphabet-white-' +row.getCell(1, COLUMN_Writer).getValue().slice(0,1).toLowerCase() + ':' ,
+            header: "" 
+        });
+
+        var year = date.getFullYear();
+        var month = ('0' + (date.getMonth() + 1)).slice(-2);
+        var day = ('0' + date.getDate()).slice(-2);
+        var dateStrings = year + '-' + month  + '-' + day;
+        if (row.getCell(1, COLUMN_jude).getValue()  === ''){
+            msg.addField(':flag-' +row.getCell(1, COLUMN_Country).getValue().toLowerCase() + ': ' + row.getCell(1, COLUMN_Country).getValue().toString().toUpperCase() + " / " + row.getCell(1, COLUMN_Account).getValue() + " / " +  row.getCell(1, COLUMN_Campaign).getValue()+ " @ " +  dateStrings,  row.getCell(1, COLUMN_Contents).getValue());
+            row.getCell(1, COLUMN_jude).setValue('on');
+        }
+        var options = {
+            method: 'post',
+            payload: JSON.stringify(msg.toPayload())
+        };
+        var res = UrlFetchApp.fetch(WEBHOOK_URL, options);
+        if (res.getResponseCode() != 200) {
+            Logger.log(res);
+        }
+    }
+}
+
+
+
+var SlackMessage = (function () {
+    function SlackMessage(config) {
+        this.fields = [];
+        this.username = config.username;
+        this.icon_emoji = config.icon_emoji;
+        this.header = config.header;
+    }
+    SlackMessage.prototype.addField = function (title, value) {
+        this.fields.push({ title: title, value: value });
+    };
+    SlackMessage.prototype.toPayload = function () {
+        var payload = {
+            attachments: [
+                {
+                    fallback: this.fields.map(function (p) { return p.title + '=' + p.value; }).join('; '),
+                    pretext: this.header,
+                    fields: this.fields
+                }
+            ],
+            username: this.username,
+            icon_emoji: this.icon_emoji
+        };
+        return payload;
+    };
+    return SlackMessage;
+})();
